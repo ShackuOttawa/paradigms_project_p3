@@ -6,7 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 type Histo struct {
@@ -35,7 +38,6 @@ func computeHistogram(imagePath string, depth int) (Histo, error) {
 	// Get the dimensions of the image
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
-	fmt.Println("width height depth: ", width, height, depth)
 
 	h := Histo{imagePath, make([]int, 1<<(depth*3)), make([]float64, 1<<(depth*3)), 0.0}
 
@@ -72,6 +74,13 @@ func computeHistograms(imagePath []string, depth int, hChan chan<- Histo) {
 }
 
 func computeSimilarity(h1, h2 Histo) {
+	var sum float64
+	for i := range h1.HCompressed {
+		sum += (min(h1.HCompressed[i], h2.HCompressed[i]))
+	}
+
+	h2.Val = sum
+
 }
 
 func readFiles(argmnnts string) {
@@ -107,8 +116,80 @@ func readFiles(argmnnts string) {
 	}
 }
 
-func main() {
+func Images(folderPath string) ([]string, error) {
+	var imageNames []string
+	err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
-	// change this to any of the files in queryimages
-	fmt.Println(computeHistogram("C:\\Users\\User\\Downloads\\paradigms_project_p3\\queryImages\\q00.jpg", 3))
+		// Verifie si le fichier est un .jpg
+		if filepath.Ext(path) == ".jpg" {
+			imageNames = append(imageNames, filepath.Base(path))
+		}
+
+		return nil
+	})
+	for i := range imageNames {
+		imageNames[i] = folderPath + "/" + imageNames[i]
+	}
+	return imageNames, err
+}
+
+func slices(list []string, k int) [][]string {
+	var divided [][]string
+	n := len(list)
+	for i := 0; i < k; i++ {
+		start := i * n / k
+		end := (i + 1) * n / k
+		divided = append(divided, list[start:end])
+	}
+	return divided
+}
+
+func main() {
+	start := time.Now()
+
+	h := make(chan Histo)
+
+	image, _ := Images(os.Args[2])
+	k := 1048
+	imageS := slices(image, k)
+	for i := 0; i < k; i++ {
+		go computeHistograms(imageS[i], 3, h)
+	}
+
+	t := make(chan Histo, 1)
+	go func() {
+		his, _ := computeHistogram("queryImages/"+os.Args[1], 3)
+		t <- his
+	}()
+	h1 := <-t
+	similarImages := make([]Histo, 5)
+	for i := 0; i < len(image); i++ {
+		h2 := <-h
+		computeSimilarity(h1, h2)
+		if len(similarImages) < 5 {
+			similarImages = append(similarImages, h2)
+			sort.Slice(similarImages, func(i, j int) bool {
+				return similarImages[i].Val > similarImages[j].Val
+			})
+		} else if similarImages[4].Val < h2.Val {
+			similarImages[4] = h2
+			sort.Slice(similarImages, func(i, j int) bool {
+				return similarImages[i].Val > similarImages[j].Val
+			})
+		}
+
+	}
+
+	fmt.Println("The 5 most similar images are: ")
+	for i := 0; i < 5; i++ {
+		fmt.Printf("%d. %s with a similarity of : %f \n", i+1, similarImages[i].Name, similarImages[i].Val)
+		fmt.Println()
+	}
+	end := time.Now()
+	fmt.Println("Time taken: ", end.Sub(start))
+	close(h)
+	close(t)
 }
