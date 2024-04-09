@@ -73,7 +73,7 @@ func computeHistograms(imagePath []string, depth int, hChan chan<- Histo) {
 
 }
 
-func computeSimilarity(h1, h2 Histo) {
+func computeSimilarity(h1 Histo, h2 *Histo) {
 	var sum float64
 	for i := range h1.HCompressed {
 		sum += (min(h1.HCompressed[i], h2.HCompressed[i]))
@@ -168,7 +168,7 @@ func main() {
 	similarImages := make([]Histo, 5)
 	for i := 0; i < len(image); i++ {
 		h2 := <-h
-		computeSimilarity(h1, h2)
+		computeSimilarity(h1, &h2)
 		if len(similarImages) < 5 {
 			similarImages = append(similarImages, h2)
 			sort.Slice(similarImages, func(i, j int) bool {
