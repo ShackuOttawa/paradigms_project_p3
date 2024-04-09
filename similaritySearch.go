@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"image/jpeg"
+	"io/ioutil"
+	"log"
 	"os"
+	"strings"
 )
 
 type Histo struct {
@@ -69,6 +72,39 @@ func computeHistograms(imagePath []string, depth int, hChan chan<- Histo) {
 }
 
 func computeSimilarity(h1, h2 Histo) {
+}
+
+func readFiles(argmnnts string) {
+
+	// read the directory name from command line
+	//args := os.Args
+
+	// sike. args is now a string
+	args := argmnnts
+
+	fmt.Println("args ", args, " end of args")
+
+	//files, err := ioutil.ReadDir(args[1])
+	files, err := ioutil.ReadDir(args)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create an array to store filenames
+	var filenames []string
+
+	// get the list of jpg files
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".jpg") {
+			filenames = append(filenames, file.Name())
+		}
+	}
+
+	// Print the array of filenames
+	fmt.Println("List of jpg images:")
+	for _, filename := range filenames {
+		fmt.Println(filename)
+	}
 }
 
 func main() {
